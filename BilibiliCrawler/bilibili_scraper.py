@@ -1,12 +1,12 @@
 """
 B站UP主视频数据爬虫
 支持输入多个UP主主页链接，爬取所有视频的完整数据
-每个UP主的数据单独保存为JSON文件
+每个UP主的数据单独保存为CSV文件
 包含防封禁保护机制
 """
 
 import requests
-import json
+import csv
 import os
 import hashlib
 import time
@@ -507,7 +507,7 @@ def scrape_up(url_or_mid, max_videos=None):
     # 生成文件名
     safe_name = sanitize_filename(up_name)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{safe_name}_UID{mid}_{timestamp}.json"
+    filename = f"{safe_name}_UID{mid}_{timestamp}.csv"
     filepath = os.path.join(OUTPUT_DIR, filename)
 
     # 计算汇总数据
@@ -521,24 +521,35 @@ def scrape_up(url_or_mid, max_videos=None):
         "总转发": sum(r["转发"] for r in results),
     }
 
-    # 保存数据
-    output_data = {
-        "UP主信息": {
-            "昵称": up_name,
-            "UID": mid,
-            "个人简介": up_info["sign"] if up_info else "",
-            "等级": up_info["level"] if up_info else 0,
-            "认证信息": up_info["official_title"] if up_info else "",
-            "主页": f"https://space.bilibili.com/{mid}",
-        },
-        "爬取时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "视频总数": len(results),
-        "数据汇总": summary,
-        "视频列表": results,
-    }
+    # 保存数据为CSV
+    csv_headers = [
+        "UP主昵称", "UID", "个人简介", "等级", "认证信息", "主页",
+        "爬取时间", "视频总数",
+        "总播放量", "总弹幕数", "总评论数", "总点赞", "总投币", "总收藏", "总转发",
+        "序号", "标题", "BV号", "简介", "播放量", "弹幕数", "评论数",
+        "点赞", "投币", "收藏", "转发", "链接",
+    ]
 
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(output_data, f, ensure_ascii=False, indent=2)
+    crawl_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    up_sign = up_info["sign"] if up_info else ""
+    up_level = up_info["level"] if up_info else 0
+    up_official = up_info["official_title"] if up_info else ""
+    up_home = f"https://space.bilibili.com/{mid}"
+
+    with open(filepath, "w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(csv_headers)
+        for r in results:
+            writer.writerow([
+                up_name, f'="{mid}"', up_sign, up_level, up_official, up_home,
+                crawl_time, len(results),
+                summary["总播放量"], summary["总弹幕数"], summary["总评论数"],
+                summary["总点赞"], summary["总投币"], summary["总收藏"],
+                summary["总转发"],
+                r["序号"], r["标题"], r["BV号"], r["简介"], r["播放量"],
+                r["弹幕数"], r["评论数"], r["点赞"], r["投币"], r["收藏"],
+                r["转发"], r["链接"],
+            ])
 
     return True, up_name, filepath, len(results)
 

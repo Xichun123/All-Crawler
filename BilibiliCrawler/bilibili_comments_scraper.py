@@ -1,12 +1,12 @@
 """
 B站视频评论爬虫
 支持输入多个视频链接，爬取评论数据
-每个视频的评论单独保存为JSON文件
+每个视频的评论单独保存为CSV文件
 包含防封禁保护机制
 """
 
 import requests
-import json
+import csv
 import os
 import time
 import re
@@ -248,7 +248,6 @@ def parse_comment(comment):
         "发布时间": datetime.fromtimestamp(comment.get("ctime", 0)).strftime("%Y-%m-%d %H:%M:%S"),
         "点赞数": comment.get("like", 0),
         "回复数": comment.get("rcount", 0),
-        "楼层": comment.get("floor", 0),
     }
 
 
@@ -361,30 +360,34 @@ def scrape_video_comments(url_or_id, max_comments=None, sort=0):
     # 生成文件名
     safe_title = sanitize_filename(video_title)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{safe_title}_{bvid}_{timestamp}.json"
+    filename = f"{safe_title}_{bvid}_{timestamp}.csv"
     filepath = os.path.join(OUTPUT_DIR, filename)
 
-    # 保存数据
-    output_data = {
-        "视频信息": {
-            "标题": video_title,
-            "BV号": bvid,
-            "AV号": aid,
-            "UP主": video_info["owner"],
-            "UP主UID": video_info["owner_mid"],
-            "播放量": video_info["view"],
-            "评论总数": total,
-            "视频简介": video_info["desc"],
-            "链接": f"https://www.bilibili.com/video/{bvid}",
-        },
-        "爬取时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "爬取评论数": len(comments),
-        "排序方式": sort_names.get(sort, "时间"),
-        "评论列表": comments,
-    }
+    # 保存数据为CSV
+    csv_headers = [
+        "视频标题", "BV号", "AV号", "UP主", "UP主UID", "播放量", "评论总数",
+        "视频简介", "视频链接", "爬取时间", "爬取评论数", "排序方式",
+        "发布时间", "评论ID", "用户UID", "点赞数", "回复数",
+        "用户等级", "用户名", "评论内容",
+    ]
 
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(output_data, f, ensure_ascii=False, indent=2)
+    crawl_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    sort_label = sort_names.get(sort, "时间")
+    video_link = f"https://www.bilibili.com/video/{bvid}"
+
+    with open(filepath, "w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(csv_headers)
+        for c in comments:
+            writer.writerow([
+                video_title, bvid, f'="{aid}"', video_info["owner"],
+                f'="{video_info["owner_mid"]}"', video_info["view"], total,
+                video_info["desc"], video_link, crawl_time,
+                len(comments), sort_label,
+                c["发布时间"], f'="{c["评论ID"]}"', f'="{c["用户UID"]}"',
+                c["点赞数"], c["回复数"], c["用户等级"], c["用户名"],
+                c["评论内容"],
+            ])
 
     return True, video_title, filepath, len(comments)
 
