@@ -1,0 +1,60 @@
+# 快手爬虫配置文件
+# CLI 参数优先级高于此文件
+# 用法: python main.py              (读取此文件运行)
+#       python main.py search "关键词"  (CLI 参数覆盖此文件)
+
+# 爬取模式: search / detail / creator
+mode = "creator"
+
+# ==================== 搜索模式配置 ====================
+# 搜索关键词列表 (search 模式)
+keywords = ["python"]
+
+# ==================== 视频详情模式配置 ====================
+# 视频 URL 或 ID 列表 (detail 模式)
+# 支持格式:
+#   完整URL: "https://www.kuaishou.com/short-video/3x3zxz4mjrsc8ke?authorId=3x84qugg4ch9zhs"
+#   纯ID:    "3x3zxz4mjrsc8ke"
+video_urls = ["https://www.kuaishou.com/short-video/3x3zxz4mjrsc8ke"]
+
+# ==================== 创作者模式配置 ====================
+# 创作者 URL 或 ID 列表 (creator 模式)
+creator_urls = ["https://www.kuaishou.com/profile/3x84qugg4ch9zhs"]
+
+# ==================== 登录配置 ====================
+# 登录方式: qrcode / cookie
+login = "qrcode"
+# Cookie 字符串 (配合 login = "cookie" 使用)
+cookie = ""
+
+# ==================== 输出配置 ====================
+# 数据保存格式: json / csv
+format = "json"
+# 数据保存路径，留空则保存到 ./data
+output = ""
+
+# ==================== 爬取数量 ====================
+# 爬取视频/帖子的数量上限
+count = 1
+# 单视频评论数上限
+comments_count = 2
+
+# ==================== 功能开关 ====================
+# 是否爬取评论
+comments = true
+# 是否爬取二级评论
+sub_comments = false
+# 是否下载视频/图片
+media = false
+# 是否生成词云
+wordcloud = false
+
+# ==================== 浏览器配置 ====================
+# 无头浏览器模式
+headless = false
+
+# ==================== 高级配置 ====================
+# 爬取间隔 (秒)
+sleep = 2
+# 是否开启 IP 代理
+proxy = false
