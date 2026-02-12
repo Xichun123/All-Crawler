@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# 虚拟环境
+.venv/
+venv/
+
+# 运行时生成的数据
+data/
+browser_data/
+
+# 日志
+*.log
+
+# uv
+uv.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store

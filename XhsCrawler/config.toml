@@ -1,0 +1,63 @@
+# 小红书爬虫配置文件
+# CLI 参数优先级高于此文件
+# 用法: python main.py              (读取此文件运行)
+#       python main.py search "关键词"  (CLI 参数覆盖此文件)
+
+# 爬取模式: search / detail / creator
+mode = "creator"
+
+# ==================== 搜索模式配置 ====================
+# 搜索关键词列表 (search 模式)
+keywords = ["美食推荐"]
+# 排序方式: general(综合) / popularity_descending(最热) / time_descending(最新)
+sort_type = "general"
+
+# ==================== 笔记详情模式配置 ====================
+# 笔记 URL 列表 (detail 模式)
+# 必须携带 xsec_token 参数
+note_urls = [
+    "https://www.xiaohongshu.com/explore/6982ab86000000002103e93c?app_platform=android&ignoreEngage=true&app_version=9.19.3&share_from_user_hidden=true&xsec_source=app_share&type=normal&xsec_token=CBO_PEQXFe0UuAJV15e27MAg16H41QFO_3_CWUd_QgsRI=&author_share=1&shareRedId=ODY5MTU5PUs2NzUyOTgwNjY0OTc5PjlB&apptime=1770909240&share_id=e2f4e0ae3b8e4bc28e4c4f2c9473419f&share_channel=copy_link&appuid=6071249b0000000001005938&xhsshare=CopyLink"]
+
+# ==================== 创作者模式配置 ====================
+# 创作者 URL 或 ID 列表 (creator 模式)
+creator_urls = [
+    "https://www.xiaohongshu.com/user/profile/5f58bd990000000001003753?xsec_token=ABYVg1evluJZZzpMX-VWzchxQ1qSNVW3r-jOEnKqMcgZw=&xsec_source=pc_search",
+]
+
+# ==================== 登录配置 ====================
+# 登录方式: qrcode / phone / cookie
+login = "qrcode"
+# Cookie 字符串 (配合 login = "cookie" 使用)
+cookie = ""
+
+# ==================== 输出配置 ====================
+# 数据保存格式: json / csv
+format = "csv"
+# 数据保存路径，留空则保存到 ./data
+output = ""
+
+# ==================== 爬取数量 ====================
+# 爬取笔记的数量上限
+count = 20
+# 单笔记评论数上限
+comments_count = 10
+
+# ==================== 功能开关 ====================
+# 是否爬取评论
+comments = true
+# 是否爬取二级评论
+sub_comments = false
+# 是否下载图片/视频
+media = false
+# 是否生成词云
+wordcloud = false
+
+# ==================== 浏览器配置 ====================
+# 无头浏览器模式
+headless = false
+
+# ==================== 高级配置 ====================
+# 爬取间隔 (秒)
+sleep = 2
+# 是否开启 IP 代理
+proxy = false
