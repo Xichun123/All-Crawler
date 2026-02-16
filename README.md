@@ -1,10 +1,7 @@
 # All Crawler
-
-一个包含多个中国主流社交媒体平台爬虫的项目，支持数据采集、评论爬取、媒体下载等功能。
-
 ## 📦 包含的爬虫
 
-- **BilibiliCrawler** - B站爬虫（UP主视频数据 + 评论）
+- **BilibiliCrawler** - B站爬虫
 - **DouyinCrawler** - 抖音爬虫
 - **XhsCrawler** - 小红书爬虫
 - **KuaishouCrawler** - 快手爬虫
