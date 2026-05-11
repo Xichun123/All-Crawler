@@ -1,0 +1,7 @@
+# raw crawler dumps and generated artifacts — track templates, not data
+data/*/*.json
+reports/
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
