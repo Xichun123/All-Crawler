@@ -40,4 +40,10 @@ DY_CREATOR_ID_LIST: list[str] = [
     # 通过 config.toml 或 CLI 参数指定，例如:
     #   python main.py creator "https://www.douyin.com/user/MS4wLjAB..."
 ]
+
+# 创作者主页内搜索关键词 (creator_search 模式)
+CREATOR_SEARCH_KEYWORD = ""
+CREATOR_SEARCH_MAX_SCROLLS = 160
+CREATOR_SEARCH_STABLE_ROUNDS = 15
+
 CRAWLER_MAX_NOTES_COUNT = 20

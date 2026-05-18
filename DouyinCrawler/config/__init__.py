@@ -11,6 +11,9 @@ _TOML_KEY_MAP = {
     "keywords":          "KEYWORDS",           # list → 逗号拼接字符串
     "video_urls":        "DY_SPECIFIED_ID_LIST",
     "creator_urls":      "DY_CREATOR_ID_LIST",
+    "creator_search_keyword": "CREATOR_SEARCH_KEYWORD",
+    "creator_search_max_scrolls": "CREATOR_SEARCH_MAX_SCROLLS",
+    "creator_search_stable_rounds": "CREATOR_SEARCH_STABLE_ROUNDS",
     "login":             "LOGIN_TYPE",
     "cookie":            "COOKIES",
     "format":            "SAVE_DATA_OPTION",
@@ -84,11 +87,15 @@ def apply_cli_args(args) -> None:
         if urls:
             _set("DY_SPECIFIED_ID_LIST", list(urls))
 
-    # creator 专属
-    if command == "creator":
+    # creator / creator-search 共用创作者 URL
+    if command in {"creator", "creator-search"}:
         urls = getattr(args, "urls", None)
         if urls:
             _set("DY_CREATOR_ID_LIST", list(urls))
+    if command == "creator-search":
+        keyword = getattr(args, "keyword", None)
+        if keyword:
+            _set("CREATOR_SEARCH_KEYWORD", keyword)
 
     # ---- 公共选项（仅覆盖 CLI 显式传入的值，None 表示未传入） ----
     _CLI_OPTION_MAP = {

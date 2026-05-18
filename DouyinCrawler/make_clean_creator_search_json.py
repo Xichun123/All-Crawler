@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
+"""Convert creator-search raw JSON to the clean project output format."""
+
+from __future__ import annotations
+
 import argparse
 import json
-from datetime import datetime
 from pathlib import Path
+
+from tools.clean_writer import write_creator_search_result
 
 
 def main() -> None:
@@ -15,33 +20,32 @@ def main() -> None:
     source = json.loads(source_path.read_text(encoding="utf-8"))
     videos = source.get("videos", [])
 
-    clean = {
-        "????": source.get("crawl_time", ""),
-        "????": "creator_search",
-        "?????": source.get("keyword", ""),
-        "????": source.get("source_url", ""),
-        "???": source.get("final_url", ""),
-        "????": source.get("target_count", ""),
-        "????": source.get("actual_count", len(videos)),
-        "??": source.get("creator", {}),
-        "????": [
-            {
-                "??": item.get("title", ""),
-                "????": item.get("video_url", ""),
-                "aweme_id": item.get("aweme_id") or item.get("video_id", ""),
-            }
-            for item in videos
-        ],
-    }
-
     if args.output:
-        out_path = Path(args.output)
+        output_path = Path(args.output)
+        output_dir = str(output_path.parent)
+        result_path = write_creator_search_result(
+            creator=source.get("creator", {}),
+            keyword=source.get("keyword", ""),
+            source_url=source.get("source_url", ""),
+            final_url=source.get("final_url", ""),
+            target_count=source.get("target_count", len(videos)),
+            videos_raw=videos,
+            output_dir=output_dir,
+        )
+        Path(result_path).replace(output_path)
+        result_path = str(output_path)
     else:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        keyword = clean["?????"] or "keyword"
-        out_path = source_path.parent / f"creator_search_{keyword}_{timestamp}_{len(videos)}_clean.json"
-    out_path.write_text(json.dumps(clean, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(out_path)
+        result_path = write_creator_search_result(
+            creator=source.get("creator", {}),
+            keyword=source.get("keyword", ""),
+            source_url=source.get("source_url", ""),
+            final_url=source.get("final_url", ""),
+            target_count=source.get("target_count", len(videos)),
+            videos_raw=videos,
+            output_dir=str(source_path.parent),
+        )
+
+    print(result_path)
     print(f"videos={len(videos)}")
 
 

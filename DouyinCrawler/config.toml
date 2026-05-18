@@ -3,7 +3,7 @@
 # 用法: python main.py              (读取此文件运行)
 #       python main.py search "关键词"  (CLI 参数覆盖此文件)
 
-# 爬取模式: search / detail / creator
+# 爬取模式: search / detail / creator / creator-search
 mode = "detail"
 
 # ==================== 搜索模式配置 ====================
@@ -23,6 +23,13 @@ video_urls = ["https://www.douyin.com/jingxuan?modal_id=7592907332615408930"]
 # ==================== 创作者模式配置 ====================
 # 创作者 URL 或 ID 列表 (creator 模式)
 creator_urls = ["https://www.douyin.com/user/MS4wLjABAAAA1ksbmz_-P9FvybFf0xZy_48EYFDTFIZHbuwo_IOdgJs?from_tab_name=main"]
+
+# ==================== 创作者主页内搜索配置 ====================
+# creator-search 模式会在 creator_urls 指定的主页内搜索该关键词
+creator_search_keyword = "AI"
+# 页面滚动上限和无新增结果停止阈值
+creator_search_max_scrolls = 160
+creator_search_stable_rounds = 15
 
 # ==================== 登录配置 ====================
 # 登录方式: qrcode / cookie
