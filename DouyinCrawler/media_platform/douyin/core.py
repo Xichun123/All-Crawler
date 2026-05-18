@@ -20,6 +20,7 @@
 import asyncio
 import os
 import random
+import urllib.parse
 from asyncio import Task
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -37,7 +38,12 @@ from proxy.proxy_ip_pool import IpInfoModel, create_ip_pool
 from store import douyin as douyin_store
 from tools import utils
 from tools.cdp_browser import CDPBrowserManager
-from tools.clean_writer import write_creator_result, write_search_result, write_detail_result
+from tools.clean_writer import (
+    write_creator_result,
+    write_creator_search_result,
+    write_detail_result,
+    write_search_result,
+)
 from var import crawler_type_var, source_keyword_var
 
 from .client import DouYinClient
@@ -112,6 +118,10 @@ class DouYinCrawler(AbstractCrawler):
             elif config.CRAWLER_TYPE == "creator":
                 # Get the information and comments of the specified creator
                 await self.get_creators_and_videos()
+            elif config.CRAWLER_TYPE in {"creator-search", "creator_search"}:
+                await self.search_creator_videos()
+            else:
+                raise ValueError(f"Unsupported crawler type: {config.CRAWLER_TYPE}")
 
             utils.logger.info("[DouYinCrawler.start] Douyin Crawler finished ...")
 
@@ -322,6 +332,168 @@ class DouYinCrawler(AbstractCrawler):
             if aweme_item is not None:
                 self._collected_videos.append(aweme_item)
                 await self.get_aweme_media(aweme_item=aweme_item)
+
+    async def search_creator_videos(self) -> None:
+        """
+        Search videos inside creator homepages through the visible page UI.
+        This flow depends on Douyin's creator-page toolbar and reuses the
+        configured browser/login context instead of launching a second browser.
+        """
+        keyword = config.CREATOR_SEARCH_KEYWORD.strip()
+        if not keyword:
+            raise ValueError("creator-search mode requires creator_search_keyword or CLI keyword")
+
+        for creator_url in config.DY_CREATOR_ID_LIST:
+            source_url = self._creator_home_url(creator_url)
+            utils.logger.info(
+                f"[DouYinCrawler.search_creator_videos] Search creator page: {source_url}, keyword: {keyword}"
+            )
+            await self.context_page.goto(source_url, wait_until="domcontentloaded", timeout=60000)
+            await self.context_page.wait_for_timeout(5000)
+
+            creator = await self._extract_visible_creator_info(creator_url)
+            await self._open_creator_search(keyword)
+            videos = await self._collect_creator_search_videos(config.CRAWLER_MAX_NOTES_COUNT)
+            final_url = self.context_page.url
+            write_creator_search_result(
+                creator=creator,
+                keyword=keyword,
+                source_url=source_url,
+                final_url=final_url,
+                target_count=config.CRAWLER_MAX_NOTES_COUNT,
+                videos_raw=videos,
+            )
+
+    def _creator_home_url(self, creator_url: str) -> str:
+        if creator_url.startswith("http"):
+            return creator_url
+        creator_info = parse_creator_info_from_url(creator_url)
+        return f"https://www.douyin.com/user/{urllib.parse.quote(creator_info.sec_user_id, safe='')}"
+
+    async def _extract_visible_creator_info(self, creator_url: str) -> Dict:
+        try:
+            nickname = (await self.context_page.locator("h1").first.inner_text(timeout=2000)).strip()
+        except Exception:
+            nickname = ""
+
+        sec_uid = ""
+        try:
+            sec_uid = parse_creator_info_from_url(creator_url).sec_user_id
+        except ValueError:
+            pass
+
+        return {
+            "昵称": nickname,
+            "sec_uid": sec_uid,
+            "主页链接": self._creator_home_url(creator_url),
+        }
+
+    async def _open_creator_search(self, keyword: str) -> None:
+        search_trigger = self.context_page.get_by_text("搜索TA的视频", exact=False).last
+        try:
+            await search_trigger.click(timeout=3000)
+        except Exception:
+            try:
+                await self.context_page.get_by_text("搜索Ta的视频", exact=False).last.click(timeout=3000)
+            except Exception:
+                await self._click_creator_toolbar_search()
+
+        await self.context_page.wait_for_timeout(800)
+        search_box = self.context_page.locator(
+            'input[placeholder*="搜索"], textarea[placeholder*="搜索"], [contenteditable="true"]'
+        ).last
+        await search_box.click(timeout=5000)
+        await self.context_page.keyboard.press("Control+A")
+        await self.context_page.keyboard.type(keyword, delay=60)
+        await self.context_page.keyboard.press("Enter")
+        await self.context_page.wait_for_timeout(5000)
+
+    async def _click_creator_toolbar_search(self) -> None:
+        box = await self.context_page.evaluate(
+            """() => {
+                const candidates = [...document.querySelectorAll('button, div, span, a')]
+                    .map((el) => {
+                        const rect = el.getBoundingClientRect();
+                        const text = (el.innerText || el.getAttribute('aria-label') || '').trim();
+                        return { rect, text };
+                    })
+                    .filter((x) => x.rect.width > 0 && x.rect.height > 0)
+                    .filter((x) => x.rect.y > 200)
+                    .filter((x) => /搜索\\s*(TA|Ta|ta)?\\s*的视频|搜索.*视频/.test(x.text))
+                    .sort((a, b) => (b.rect.width * b.rect.height) - (a.rect.width * a.rect.height));
+                const target = candidates[0];
+                if (!target) return null;
+                return {
+                    x: target.rect.left + target.rect.width / 2,
+                    y: target.rect.top + target.rect.height / 2
+                };
+            }"""
+        )
+        if not box:
+            raise RuntimeError("Unable to find creator-page internal search entry")
+        await self.context_page.mouse.click(box["x"], box["y"])
+
+    async def _collect_creator_search_videos(self, count: int) -> List[Dict]:
+        all_items: List[Dict] = []
+        stable_rounds = 0
+        last_count = 0
+        max_scrolls = max(1, config.CREATOR_SEARCH_MAX_SCROLLS)
+        stable_limit = max(1, config.CREATOR_SEARCH_STABLE_ROUNDS)
+
+        for _ in range(max_scrolls):
+            all_items = self._dedupe_visible_videos(
+                all_items + await self._collect_visible_videos()
+            )
+            utils.logger.info(
+                f"[DouYinCrawler.search_creator_videos] collected={len(all_items)} url={self.context_page.url}"
+            )
+            if len(all_items) >= count:
+                break
+
+            if len(all_items) == last_count:
+                stable_rounds += 1
+            else:
+                stable_rounds = 0
+                last_count = len(all_items)
+            if stable_rounds >= stable_limit:
+                break
+
+            await self.context_page.mouse.wheel(0, 1800)
+            await self.context_page.wait_for_timeout(1200)
+
+        return all_items[:count]
+
+    async def _collect_visible_videos(self) -> List[Dict]:
+        return await self.context_page.evaluate(
+            """() => Array.from(document.querySelectorAll('a[href*="/video/"]')).map((a) => {
+                const href = new URL(a.getAttribute('href'), location.href).href.split('?')[0];
+                const match = href.match(/\\/video\\/(\\d+)/);
+                const img = a.querySelector('img');
+                const textParts = [
+                    a.innerText,
+                    a.getAttribute('aria-label'),
+                    a.getAttribute('title'),
+                    img && img.getAttribute('alt')
+                ].filter(Boolean).map((v) => String(v).trim()).filter(Boolean);
+                return {
+                    video_id: match ? match[1] : "",
+                    aweme_id: match ? match[1] : "",
+                    video_url: href,
+                    title: textParts[0] || ""
+                };
+            })"""
+        )
+
+    def _dedupe_visible_videos(self, items: List[Dict]) -> List[Dict]:
+        seen = set()
+        result = []
+        for item in items:
+            video_id = item.get("video_id") or item.get("aweme_id")
+            if not video_id or video_id in seen:
+                continue
+            seen.add(video_id)
+            result.append(item)
+        return result
 
     async def create_douyin_client(self, httpx_proxy: Optional[str]) -> DouYinClient:
         """Create douyin client"""

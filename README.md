@@ -15,7 +15,7 @@
 - 🖼️ 媒体下载（视频/图片）
 - ☁️ 词云生成
 - 🛡️ 防封禁机制（随机延迟、User-Agent 轮换）
-- 🎯 多种爬取模式（搜索/详情/创作者）
+- 🎯 多种爬取模式（搜索/详情/创作者/创作者主页内搜索）
 
 ## 📋 环境要求
 
@@ -68,7 +68,7 @@ playwright install chromium
 编辑 `config.toml` 文件：
 
 ```toml
-# 爬取模式: search / detail / creator
+# 爬取模式: search / detail / creator / creator-search
 mode = "detail"
 
 # 搜索关键词（search 模式）
@@ -79,6 +79,9 @@ video_urls = ["https://www.douyin.com/video/7525538910311632128"]
 
 # 创作者链接（creator 模式）
 creator_urls = ["https://www.douyin.com/user/MS4wLjABAAAA..."]
+
+# 创作者主页内搜索关键词（creator-search 模式）
+creator_search_keyword = "AI"
 
 # 登录方式: qrcode / cookie
 login = "qrcode"
@@ -107,6 +110,7 @@ python main.py
 python main.py search "美食"
 python main.py detail "https://www.douyin.com/video/..."
 python main.py creator "https://www.douyin.com/user/..."
+python main.py creator-search "https://www.douyin.com/user/..." "AI"
 
 # 查看帮助
 python main.py --help
@@ -153,6 +157,13 @@ python main.py detail "视频链接"
 
 ```bash
 python main.py creator "创作者主页链接"
+```
+
+### 4. 创作者主页内搜索模式（creator-search）
+在指定创作者主页内按关键词搜索作品
+
+```bash
+python main.py creator-search "创作者主页链接" "关键词"
 ```
 
 ## 📊 数据输出

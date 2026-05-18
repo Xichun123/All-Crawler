@@ -60,12 +60,13 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python main.py",
-        description="抖音爬虫 — 支持搜索、视频详情、创作者主页三种模式",
+        description="抖音爬虫 — 支持搜索、视频详情、创作者主页、创作者主页内搜索四种模式",
         epilog=(
             "示例:\n"
             '  python main.py search "编程副业" "编程兼职"\n'
             '  python main.py detail "https://www.douyin.com/video/7525538910311632128"\n'
             '  python main.py creator "https://www.douyin.com/user/MS4wLjAB..."\n'
+            '  python main.py creator-search "https://www.douyin.com/user/MS4wLjAB..." "关键词"\n'
             "  python main.py                  # 无参数 → 读取 config.toml 运行\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -110,6 +111,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="创作者 URL 或 ID 列表",
     )
     _add_common_options(creator_parser)
+
+    # ---- creator-search ----
+    creator_search_parser = subparsers.add_parser(
+        "creator-search", help="创作者主页内搜索模式",
+        description="在指定创作者主页内按关键词搜索作品",
+    )
+    creator_search_parser.add_argument(
+        "urls", nargs="+",
+        help="创作者 URL 或 ID 列表",
+    )
+    creator_search_parser.add_argument(
+        "keyword",
+        help="主页内搜索关键词",
+    )
+    _add_common_options(creator_search_parser)
 
     return parser
 

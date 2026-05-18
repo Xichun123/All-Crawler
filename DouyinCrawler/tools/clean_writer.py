@@ -2,12 +2,14 @@
 # 整洁 JSON 输出模块 — 将原始 API 数据转换为中文字段名的 JSON 文件
 
 import json
+import logging
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import config
-from tools import utils
+
+logger = logging.getLogger("MediaCrawler")
 
 
 def _safe_int(value: Any) -> int:
@@ -89,6 +91,17 @@ def _map_video_with_author(aweme_item: Dict, comments: Optional[List[Dict]] = No
     return result
 
 
+def _map_visible_video(item: Dict) -> Dict:
+    """映射页面可见视频卡片数据。"""
+    aweme_id = item.get("aweme_id") or item.get("video_id", "")
+    video_url = item.get("video_url", "")
+    return {
+        "标题": item.get("title", ""),
+        "视频链接": video_url or (f"https://www.douyin.com/video/{aweme_id}" if aweme_id else ""),
+        "aweme_id": aweme_id,
+    }
+
+
 def _map_creator(creator_raw: Dict) -> Dict:
     """从原始 creator API 响应提取作者信息"""
     user = creator_raw.get("user", {})
@@ -144,7 +157,7 @@ def write_creator_result(
     filename = _gen_filename("creator", author_info.get("昵称", ""))
     filepath = os.path.join(out, filename)
     _write_json(result, filepath)
-    utils.logger.info(f"[clean_writer] creator 数据已写入: {filepath} ({len(videos_raw)} 条视频)")
+    logger.info(f"[clean_writer] creator 数据已写入: {filepath} ({len(videos_raw)} 条视频)")
     return filepath
 
 
@@ -173,7 +186,7 @@ def write_search_result(
     filename = _gen_filename("search", keyword)
     filepath = os.path.join(out, filename)
     _write_json(result, filepath)
-    utils.logger.info(f"[clean_writer] search 数据已写入: {filepath} ({len(videos_raw)} 条视频)")
+    logger.info(f"[clean_writer] search 数据已写入: {filepath} ({len(videos_raw)} 条视频)")
     return filepath
 
 
@@ -200,5 +213,38 @@ def write_detail_result(
     filename = _gen_filename("detail", f"{len(videos_raw)}条视频")
     filepath = os.path.join(out, filename)
     _write_json(result, filepath)
-    utils.logger.info(f"[clean_writer] detail 数据已写入: {filepath} ({len(videos_raw)} 条视频)")
+    logger.info(f"[clean_writer] detail 数据已写入: {filepath} ({len(videos_raw)} 条视频)")
+    return filepath
+
+
+def write_creator_search_result(
+    creator: Dict,
+    keyword: str,
+    source_url: str,
+    final_url: str,
+    target_count: int,
+    videos_raw: List[Dict],
+    output_dir: Optional[str] = None,
+) -> str:
+    """creator-search 模式：一个作者主页内关键词搜索结果。"""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    result = {
+        "爬取时间": now,
+        "爬取模式": "creator_search",
+        "搜索关键词": keyword,
+        "来源主页": source_url,
+        "最终页面": final_url,
+        "目标数量": target_count,
+        "实际数量": len(videos_raw),
+        "作者": creator,
+        "视频列表": [_map_visible_video(v) for v in videos_raw],
+    }
+
+    out = output_dir or _output_dir()
+    os.makedirs(out, exist_ok=True)
+    creator_name = creator.get("昵称") or creator.get("nickname", "")
+    filename = _gen_filename("creator_search", f"{creator_name}_{keyword}".strip("_"))
+    filepath = os.path.join(out, filename)
+    _write_json(result, filepath)
+    logger.info(f"[clean_writer] creator_search 数据已写入: {filepath} ({len(videos_raw)} 条视频)")
     return filepath
