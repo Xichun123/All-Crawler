@@ -389,14 +389,17 @@ class DouYinCrawler(AbstractCrawler):
         }
 
     async def _open_creator_search(self, keyword: str) -> None:
-        search_trigger = self.context_page.get_by_text("搜索TA的视频", exact=False).last
+        search_input = self.context_page.locator('input[placeholder*="搜索 Ta 的作品"], input[placeholder*="搜索Ta的作品"]').last
         try:
-            await search_trigger.click(timeout=3000)
+            await search_input.click(timeout=3000)
         except Exception:
             try:
-                await self.context_page.get_by_text("搜索Ta的视频", exact=False).last.click(timeout=3000)
+                await self.context_page.get_by_text("搜索 Ta 的作品", exact=False).last.click(timeout=3000)
             except Exception:
-                await self._click_creator_toolbar_search()
+                try:
+                    await self.context_page.get_by_text("搜索Ta的视频", exact=False).last.click(timeout=3000)
+                except Exception:
+                    await self._click_creator_toolbar_search()
 
         await self.context_page.wait_for_timeout(800)
         search_box = self.context_page.locator(
@@ -419,7 +422,7 @@ class DouYinCrawler(AbstractCrawler):
                     })
                     .filter((x) => x.rect.width > 0 && x.rect.height > 0)
                     .filter((x) => x.rect.y > 200)
-                    .filter((x) => /搜索\\s*(TA|Ta|ta)?\\s*的视频|搜索.*视频/.test(x.text))
+                    .filter((x) => /搜索\\s*(TA|Ta|ta)?\\s*的(视频|作品)|搜索.*(视频|作品)/.test(x.text))
                     .sort((a, b) => (b.rect.width * b.rect.height) - (a.rect.width * a.rect.height));
                 const target = candidates[0];
                 if (!target) return null;
@@ -434,6 +437,13 @@ class DouYinCrawler(AbstractCrawler):
         await self.context_page.mouse.click(box["x"], box["y"])
 
     async def _collect_creator_search_videos(self, count: int) -> List[Dict]:
+        page_total = await self._get_search_result_count()
+        if page_total is not None and page_total > 0:
+            count = min(count, page_total)
+            utils.logger.info(
+                f"[DouYinCrawler.search_creator_videos] page reports {page_total} results, capping at {count}"
+            )
+
         all_items: List[Dict] = []
         stable_rounds = 0
         last_count = 0
@@ -442,7 +452,7 @@ class DouYinCrawler(AbstractCrawler):
 
         for _ in range(max_scrolls):
             all_items = self._dedupe_visible_videos(
-                all_items + await self._collect_visible_videos()
+                all_items + await self._collect_search_result_videos()
             )
             utils.logger.info(
                 f"[DouYinCrawler.search_creator_videos] collected={len(all_items)} url={self.context_page.url}"
@@ -462,6 +472,62 @@ class DouYinCrawler(AbstractCrawler):
             await self.context_page.wait_for_timeout(1200)
 
         return all_items[:count]
+
+    async def _get_search_result_count(self) -> Optional[int]:
+        """从页面"找到该用户的X个相关视频"提取搜索结果总数"""
+        import re
+        try:
+            text = await self.context_page.evaluate(
+                """() => {
+                    const el = [...document.querySelectorAll('*')].find(
+                        e => /找到该用户的\\d+个相关视频/.test(e.innerText) && e.children.length === 0
+                    );
+                    return el ? el.innerText : '';
+                }"""
+            )
+            m = re.search(r"找到该用户的(\d+)个相关视频", text)
+            return int(m.group(1)) if m else None
+        except Exception:
+            return None
+
+    async def _collect_search_result_videos(self) -> List[Dict]:
+        """只收集搜索结果区域内的视频，排除推荐区域"""
+        return await self.context_page.evaluate(
+            """() => {
+                // 找到"找到该用户的X个相关视频"所在的容器
+                const hint = [...document.querySelectorAll('*')].find(
+                    e => /找到该用户的\\d+个相关视频/.test(e.innerText) && e.children.length === 0
+                );
+                // 搜索结果容器：hint 的父级中包含视频链接的最近祖先
+                let container = hint;
+                if (container) {
+                    while (container && container !== document.body) {
+                        container = container.parentElement;
+                        if (container && container.querySelectorAll('a[href*="/video/"]').length > 0) break;
+                    }
+                }
+                if (!container || container === document.body) container = null;
+
+                const scope = container || document;
+                return Array.from(scope.querySelectorAll('a[href*="/video/"]')).map((a) => {
+                    const href = new URL(a.getAttribute('href'), location.href).href.split('?')[0];
+                    const match = href.match(/\\/video\\/(\\d+)/);
+                    const img = a.querySelector('img');
+                    const textParts = [
+                        a.innerText,
+                        a.getAttribute('aria-label'),
+                        a.getAttribute('title'),
+                        img && img.getAttribute('alt')
+                    ].filter(Boolean).map((v) => String(v).trim()).filter(Boolean);
+                    return {
+                        video_id: match ? match[1] : "",
+                        aweme_id: match ? match[1] : "",
+                        video_url: href,
+                        title: textParts[0] || ""
+                    };
+                });
+            }"""
+        )
 
     async def _collect_visible_videos(self) -> List[Dict]:
         return await self.context_page.evaluate(
